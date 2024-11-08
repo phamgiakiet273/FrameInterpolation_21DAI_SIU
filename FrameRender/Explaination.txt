@@ -9,4 +9,6 @@ The wincap.get_screenshot() method returns a NumPy array with a data type of uin
 
 Saving the screenshot using cv.imwrite():
 When you save the NumPy array with cv.imwrite(), you specify the desired file extension, and OpenCV saves it in that format.
-You could save it as .png, .jpg, .bmp, etc., based on your needs. The file extension will determine the image format.
+You could save it as .png, .jpg, .bmp, etc., based on your needs. The file extension will determine the image format
+
+# Test 11/8/2024

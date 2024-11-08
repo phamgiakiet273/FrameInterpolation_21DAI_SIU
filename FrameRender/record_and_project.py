@@ -4,7 +4,7 @@ from time import time
 from windowcapture import WindowCapture
 
 # Initialize the WindowCapture class
-# example: BlueStacks App Player | Into the Breach
+# ex: BlueStacks App Player | Into the Breach
 window_name = 'BlueStacks App Player'  # Change this to match exactly your window name
 wincap = WindowCapture(window_name)
 
