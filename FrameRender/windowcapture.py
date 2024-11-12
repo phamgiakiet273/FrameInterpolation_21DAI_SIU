@@ -76,18 +76,3 @@ class WindowCapture:
             print(f"Screenshot failed: {str(e)}")
             return None
 
-    def get_window_info(self):
-        """Get detailed information about the target window"""
-        if self.hwnd:
-            rect = win32gui.GetWindowRect(self.hwnd)
-            client_rect = win32gui.GetClientRect(self.hwnd)
-            class_name = win32gui.GetClassName(self.hwnd)
-            window_text = win32gui.GetWindowText(self.hwnd)
-            
-            print(f"\nWindow Information:")
-            print(f"Handle: {hex(self.hwnd)}")
-            print(f"Title: '{window_text}'")
-            print(f"Class: {class_name}")
-            print(f"Window Rect: {rect}")
-            print(f"Client Rect: {client_rect}")
-            print(f"Dimensions (cropped): {self.w}x{self.h}")

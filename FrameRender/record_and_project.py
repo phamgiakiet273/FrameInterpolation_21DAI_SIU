@@ -1,7 +1,7 @@
 import cv2 as cv
 import numpy as np
 import win32gui
-from time import time
+from time import time, sleep
 from windowcapture import WindowCapture
 
 def list_window_names():
@@ -16,49 +16,58 @@ def list_window_names():
     win32gui.EnumWindows(winEnumHandler, None) 
     return window_names  
 
+def measure_app_fps(window_name, duration=3):
+    """Measure the average FPS of the target application over a specified duration."""
+    wincap = WindowCapture(window_name)
+    frames_captured = 0
+    start_time = time()
+
+    while time() - start_time < duration:
+        screenshot = wincap.get_screenshot()
+        if screenshot is not None:
+            frames_captured += 1
+
+    # Calculate FPS and round to 30, 45, or 60
+    avg_fps = frames_captured / duration
+    if avg_fps < 37.5:
+        target_fps = 30
+    elif avg_fps < 52.5:
+        target_fps = 45
+    else:
+        target_fps = 60
+
+    print(f"\nMeasured FPS: {avg_fps:.2f}, Rounding to Target FPS: {target_fps}")
+    return target_fps
+
 def capture_and_display(app_name, exp=1):
-    # Initialize the WindowCapture class with the provided app_name
+    # Measure the app's FPS and set target delay for capture rate
+    target_fps = measure_app_fps(app_name)
+    capture_interval = 1 / target_fps  # Time between frames
+
     wincap = WindowCapture(app_name)
 
-    # Print detailed information about the target window
-    wincap.get_window_info()
-
     print("\nStarting capture loop...")
-    print("Press 'q' to quit")
-    print("Press 'r' to reset window size")
-    print("You can now resize the window using mouse")
-
-    # Create a named window that's resizable
     cv.namedWindow('App Display', cv.WINDOW_NORMAL)
 
-    # Set initial window size to match the game's dimensions
-    initial_width = wincap.w
-    initial_height = wincap.h
+    initial_width, initial_height = wincap.w, wincap.h
     cv.resizeWindow('App Display', initial_width, initial_height)
 
-    loop_time = time()
     while True:
+        start_time = time()
+
         # Get screenshot
         screenshot = wincap.get_screenshot()
-        
-        # Check if screenshot was successful
         if screenshot is not None and screenshot.size > 0:
+            # Display the screenshot
             """# interpolatedScreenshot = Interpolate(screenshot) <- Add code to do interpolation
-            if img0.shape[2] == 4 and screenshot.shape[2] == 3: # code to convert if different channel, add img0 before use
+            if img0.shape[2] == 4 and screenshot.shape[2] == 3: 
                 screenshot = cv.cvtColor(screenshot, cv.COLOR_BGR2BGRA)
             elif img0.shape[2] == 3 and screenshot.shape[2] == 4:
                 screenshot = cv.cvtColor(screenshot, cv.COLOR_BGRA2BGR)"""
 
-            # Display the screenshot
             cv.imshow('App Display', screenshot)
         else:
             print("Failed to capture screenshot")
-
-        # Calculate and display FPS
-        current_time = time()
-        fps = 1 / (current_time - loop_time)
-        loop_time = current_time
-        print(f'FPS: {fps:.2f}', end='\r')
 
         # Handle keyboard input
         key = cv.waitKey(1)
@@ -66,8 +75,12 @@ def capture_and_display(app_name, exp=1):
             cv.destroyAllWindows()
             break
         elif key == ord('r'):
-            # Reset window size to original dimensions
             cv.resizeWindow('App Display', initial_width, initial_height)
+
+        # Maintain capture rate by sleeping for the remaining interval time
+        elapsed = time() - start_time
+        if elapsed < capture_interval:
+            sleep(capture_interval - elapsed)
 
     print('\nDone.')
 
