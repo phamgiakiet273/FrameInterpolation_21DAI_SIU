@@ -1,5 +1,4 @@
 import cv2 as cv
-import numpy as np
 import win32gui
 from time import time, sleep
 from windowcapture import WindowCapture
@@ -87,4 +86,4 @@ def capture_and_display(app_name, exp=1):
 # Example usage
 window_list = list_window_names()
 print(window_list)
-capture_and_display('BlueStacks App Player')
+capture_and_display('Into The Breach')

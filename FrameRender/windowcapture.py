@@ -1,7 +1,6 @@
 import numpy as np
-import win32gui, win32ui, win32con
-from ctypes import windll, byref, c_ubyte
-from ctypes.wintypes import RECT, HWND
+import win32gui, win32ui
+from ctypes import windll
 import cv2
 
 class WindowCapture:
