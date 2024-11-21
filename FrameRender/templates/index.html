@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLV Video Stream</title>
+    <script src="https://cdn.jsdelivr.net/npm/flv.js@latest"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        video {
+            width: 80%;
+            max-width: 1280px;
+            height: auto;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live FLV Video Stream</h1>
+    <video id="flvVideo" muted autoplay playsinline controls></video>
+
+    <script>
+        var flvVideoElement = document.getElementById('flvVideo');
+
+        if (flvjs.isSupported()) {
+            var flvPlayer = flvjs.createPlayer({
+                type: 'flv',
+                url: '/stream_video'
+            });
+
+            flvPlayer.attachMediaElement(flvVideoElement);
+            flvPlayer.load();
+
+            flvVideoElement.play().catch(function (error) {
+                console.warn('Autoplay failed. User interaction required.', error);
+                flvVideoElement.addEventListener('click', function () {
+                    flvVideoElement.play();
+                });
+            });
+
+            flvVideoElement.addEventListener('pause', function () {
+                if (!flvVideoElement.ended) {
+                    flvVideoElement.play().catch(function (error) {
+                        console.warn('Failed to resume playback.', error);
+                    });
+                }
+            });
+
+            flvVideoElement.addEventListener('ended', function () {
+                flvPlayer.unload();
+                flvPlayer.load();
+                flvPlayer.play();
+            });
+        } else {
+            console.error('FLV.js is not supported in this browser.');
+            alert('FLV.js is not supported in this browser. Try using Chrome or another compatible browser.');
+        }
+    </script>
+</body>
+</html>
