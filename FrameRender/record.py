@@ -1,6 +1,6 @@
 import cv2
-import win32gui
-from time import time
+import win32gui, win32con
+from time import time, sleep
 from subprocess import Popen, PIPE
 from windowcapture import WindowCapture
 
@@ -18,6 +18,18 @@ def list_window_names():
 
     win32gui.EnumWindows(win_enum_handler, None)
     return window_names
+
+def force_window_rendering(window_name):
+    """Ensure a window redraws / updates its display even when it is not the active window."""
+    hwnd = win32gui.FindWindow(None, window_name)
+    if hwnd:
+        win32gui.SetWindowLong(hwnd, win32con.GWL_STYLE,
+                               win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE) | win32con.WS_VISIBLE)
+        win32gui.SetWindowPos(hwnd, win32con.HWND_TOP, 0, 0, 0, 0,
+                              win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED)
+        # Force the window to redraw
+        win32gui.RedrawWindow(hwnd, None, None, win32con.RDW_INVALIDATE | win32con.RDW_UPDATENOW)
+
 
 def measure_app_fps(window_name, duration=3):
     """Measures the average FPS of the target application."""
@@ -46,7 +58,7 @@ def measure_app_fps(window_name, duration=3):
 def capture_and_stream(app_name):
     """Captures frames from the target app and streams/saves using FFmpeg."""
     actual_target_fps = measure_app_fps(app_name)
-    capture_interval = int(1000 / actual_target_fps)  # Convert FPS to milliseconds
+    capture_interval = 1.0 / actual_target_fps  # Interval in seconds
     wincap = WindowCapture(app_name)
 
     # Launch FFmpeg as a subprocess with optimized settings
@@ -63,8 +75,8 @@ def capture_and_stream(app_name):
         "-preset", "ultrafast",
         "-tune", "zerolatency",  # Optimize for low-latency
         "-pix_fmt", "yuv420p",
-        "-bufsize", "512k",  # Smaller buffer size
-        "-probesize", "32",  # Reduce probe size
+        "-bufsize", "1M",
+        "-max_delay", "0",  
         "-f", "flv",
         OUTPUT_FILE
     ]
@@ -73,22 +85,27 @@ def capture_and_stream(app_name):
 
     print(f"Starting capture and stream... (Capture target: {actual_target_fps} FPS)")
 
+    frame_count = 0
+    start_time = time()
+
     try:
         while True:
-            start_time = time()
+            loop_start = time()
 
             frame = wincap.get_screenshot()
             if frame is not None:
                 # Write the raw frame data to FFmpeg's stdin
                 ffmpeg_process.stdin.write(frame.tobytes())
+                frame_count += 1
             else:
                 print("Failed to capture frame.")
+                continue
 
-            # Enforce consistent frame capture interval
-            elapsed = time() - start_time
-            remaining_time = capture_interval - (elapsed * 1000)
-            if remaining_time > 0:
-                cv2.waitKey(int(remaining_time))  # Wait for the remaining time in milliseconds
+            # Calculate elapsed time for the current frame
+            elapsed = time() - loop_start
+            frame_time = 1.0 / actual_target_fps
+            if elapsed < frame_time:
+                sleep(frame_time - elapsed)
 
     except KeyboardInterrupt:
         print("\nCapture interrupted by user.")

@@ -30,9 +30,13 @@
 
         if (flvjs.isSupported()) {
             var flvPlayer = flvjs.createPlayer({
-                type: 'flv',
-                url: '/stream_video'
-            });
+            type: 'flv',
+            url: '/stream_video',
+            isLive: true, // Indicate this is a live stream
+        }, {
+            enableStashBuffer: false, // Disable stash buffering for low latency
+            stashInitialSize: 128,    // Reduce buffer size
+        });
 
             flvPlayer.attachMediaElement(flvVideoElement);
             flvPlayer.load();
