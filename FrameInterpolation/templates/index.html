@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flv.js/1.5.0/flv.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xử lý Video</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(120deg, #232526, #414345);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+
+    h3 {
+      margin-bottom: 15px;
+      font-size: 20px;
+      text-transform: uppercase;
+    }
+
+    .container {
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      margin-top: 0px;
+      padding: 20px;
+    }
+
+    .video-container {
+      width: 40%;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 8px;
+      padding: 20px;
+      margin-left: 10px;
+      margin-right: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    video {
+      width: 100%;
+      height: 300px;
+      object-fit: cover;
+      background-color: #000;
+      border-radius: 8px;
+    }
+
+    .process-container select {
+      width: 100%; /* Đảm bảo hai ô có cùng chiều ngang */
+      padding: 10px;
+      font-size: 16px;
+      margin-bottom: 10px; /* Khoảng cách giữa các ô */
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #333;
+      color: #fff;
+    }
+
+    button, select {
+      margin-top: 15px;
+      padding: 12px 20px;
+      font-size: 16px;
+      color: #fff;
+      background: #414345;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover, select:hover {
+      background: #ff6a00;
+    }
+
+    .info {
+      margin-top: 10px;
+      text-align: left;
+      font-size: 14px;
+      color: #ddd;
+    }
+
+    .file-upload {
+      position: relative;
+      text-align: left;
+      margin-top: 50px ;
+      margin-left: 30px; /* Khoảng cách lề trái */
+    }
+
+    .file-upload input[type="file"] {
+      display: block;
+      width: 300px;
+      padding: 10px;
+      font-size: 16px;
+      color: #fff;
+      background: #414345;
+      border: 1px solid #777;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .file-upload input[type="file"]:hover {
+      background: #ff6a00;
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="file-upload">
+    <label for="upload">Chọn file video:</label>
+    <input type="file" id="upload" accept="video/*">
+  </div>
+
+  <div class="container">
+    <!-- Left Video Container -->
+    <div class="video-container">
+      <h3>Video tải lên</h3>
+      <video id="mp4Video" controls autoplay loop></video>
+      <div id="leftInfo" class="info">
+        <!-- Thông tin video bên trái sẽ được cập nhật -->
+      </div>
+    </div>
+
+    <!-- Process Container -->
+    <div class="process-container">
+      <h3>Chọn tham số xử lý</h3>
+      <label for="fpsSelect">Tăng FPS:</label>
+      <select id="fpsSelect">
+        <option value="x2">x2</option>
+        <option value="x3">x3</option>
+        <option value="x4">x4</option>
+      </select>
+      <br>
+      <label for="modeSelect">Chế độ:</label>
+      <select id="modeSelect">
+        <option value="default">Default</option>
+        <option value="frame">Frame Dedup</option>
+        <option value="scene">Scene Boundary</option>
+      </select>
+      <br>
+      <button onclick="processVideo()">Xử lý &raquo;</button>
+    </div>
+
+    <!-- Right Video Container -->
+    <div class="video-container">
+      <h3>Video sau xử lý</h3>
+      <video id="flvVideo" controls autoplay loop></video>
+      <div id="rightInfo" class="info">
+        <!-- Thông tin video bên phải sẽ được cập nhật -->
+      </div>
+    </div>
+  </div>
+
+  
+
+  <script>
+    const uploadInput = document.getElementById("upload");
+    const flvVideoElement = document.getElementById('flvVideo');
+    const mp4VideoElement = document.getElementById('mp4Video');
+    const fpsSelect = document.getElementById('fpsSelect');
+    const modeSelect = document.getElementById('modeSelect');
+    const leftInfo = document.getElementById('leftInfo');
+    const rightInfo = document.getElementById('rightInfo');
+
+    // Display uploaded video on the left and update its info
+    uploadInput.addEventListener("change", function () {
+        const file = uploadInput.files[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            // Send the file to the server
+            fetch("http://localhost:5000/upload", {
+                method: "POST",
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Server response:", data);
+                    const fileURL = URL.createObjectURL(file);
+                    mp4VideoElement.src = fileURL; // Set video source
+                    
+                    // Wait until the video is ready before pausing
+                    mp4VideoElement.addEventListener("loadeddata", () => {
+                        mp4VideoElement.pause(); // Explicitly pause when video is ready
+                        mp4VideoElement.currentTime = 0; // Reset to the beginning
+                    });
+
+                    fetchMetadata('input', leftInfo); // Fetch and display metadata
+                })
+                .catch(error => console.error("Upload error:", error));
+        }
+    });
+
+    // Fetch metadata for the given video type and update info element
+    function fetchMetadata(type, infoElement) {
+      fetch(`http://localhost:5000/metadata?type=${type}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            infoElement.innerHTML = `<span style="color: red;">${data.error}</span>`;
+          } else {
+            updateVideoInfo(data, infoElement);
+          }
+        })
+        .catch(error => console.error("Metadata fetch error:", error));
+    }
+
+    // Process video
+    function processVideo() {
+
+      if(!mp4VideoElement.src)
+      {
+        return; 
+      }
+
+      const params = {
+        fps: fpsSelect.value,
+        mode: modeSelect.value
+      };
+
+      fetch(`http://localhost:5000/process?fps=${params.fps}&mode=${params.mode}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.message) {
+            alert(data.message);
+            // Set up FLV playback
+            if (flvjs.isSupported()) {
+              const flvPlayer = flvjs.createPlayer({
+                type: 'flv',
+                url: 'http://localhost:5000/stream_video'
+              });
+              flvPlayer.attachMediaElement(flvVideoElement);
+              flvPlayer.load();
+              flvPlayer.play();
+              fetchMetadata('output', rightInfo); // Fetch and display metadata for output
+            }
+          } else if (data.error) {
+            alert(data.error);
+          }
+        })
+        .catch(error => console.error("Processing error:", error));
+    }
+
+    // Update video information
+    function updateVideoInfo(data, infoElement) {
+      infoElement.innerHTML = `
+        <strong>FPS:</strong> ${data.fps || "N/A"}<br>
+        <strong>Duration:</strong> ${data.duration || "N/A"} seconds<br>
+        <strong>Resolution:</strong> ${data.resolution || "N/A"}
+      `;
+    }
+    // Sync the MP4 video with FLV video pause and loading state
+    flvVideoElement.addEventListener('play', function () {
+        if (mp4VideoElement.paused || Math.abs(flvVideoElement.currentTime - mp4VideoElement.currentTime) > 0.1) {
+            // Sync current time and play MP4
+            mp4VideoElement.currentTime = flvVideoElement.currentTime;
+            mp4VideoElement.play();
+        }
+    });
+
+    flvVideoElement.addEventListener('pause', function() {
+        // Pause MP4 when FLV is paused
+        if (!mp4VideoElement.paused) {
+            mp4VideoElement.pause();
+        }
+    });
+
+    flvVideoElement.addEventListener('waiting', function() {
+        // Pause MP4 when FLV is loading/buffering
+        if (!mp4VideoElement.paused) {
+            mp4VideoElement.pause();
+        }
+    });
+
+    flvVideoElement.addEventListener('playing', function() {
+        // Play MP4 when FLV starts playing again
+        if (mp4VideoElement.paused) {
+            mp4VideoElement.play();
+        }
+    });
+
+    flvVideoElement.addEventListener('ended', function() {
+        // Pause MP4 when FLV ends (if you want to stop MP4 after FLV ends)
+        mp4VideoElement.pause();
+    });
+
+
+    flvVideoElement.addEventListener('seeking', function () {
+        // Sync MP4 video to the FLV's seeking position
+        mp4VideoElement.currentTime = flvVideoElement.currentTime;
+    });
+
+    flvVideoElement.addEventListener('timeupdate', function () {
+        // Keep MP4 in sync with FLV during playback
+        if (Math.abs(flvVideoElement.currentTime - mp4VideoElement.currentTime) > 0.1) {
+            mp4VideoElement.currentTime = flvVideoElement.currentTime;
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        mp4VideoElement.pause();
+    });
+
+  </script>
+</body>
+</html>

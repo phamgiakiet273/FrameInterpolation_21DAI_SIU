@@ -1,0 +1,5 @@
+
+python -m pip install flask flask_cors
+cd ffmpeg-7.0.2-amd64-static/
+mv ffmpeg ffprobe /usr/local/bin/
+chmod 777 -R /usr/local/bin/
