@@ -1,10 +1,10 @@
-import win32gui, win32con
-import cv2
+import win32gui
+import math
 from time import time, perf_counter
 from subprocess import Popen, PIPE
 from windowcapture import WindowCapture
 
-OUTPUT_FILE = r"C:\Users\F14_TOMCAT\Downloads\GIAO_TRINH\ComputerVision\FrameInterpolation_21DAI_SIU\FrameRender\output.flv"
+OUTPUT_FILE = "C:/Users/F14_TOMCAT/Downloads/GIAO_TRINH/ComputerVision/FrameInterpolation_21DAI_SIU/FrameRender/output.flv"
 
 def list_window_names():
     """Lists all visible window names."""
@@ -32,22 +32,14 @@ def measure_app_fps(window_name, duration=3):
 
     elapsed_time = perf_counter() - start_time  # Calculate exact elapsed time
     avg_fps = frames_captured / elapsed_time if elapsed_time > 0 else 0  # Avoid divide-by-zero
-    if avg_fps < 28:
-        target_fps = 15
-    elif avg_fps < 43:
-        target_fps = 30
-    elif avg_fps < 58:
-        target_fps = 45
-    else:
-        target_fps = 60
+    target_fps = math.floor(avg_fps)
 
     print(f"Measured FPS: {avg_fps:.2f}, Rounding to Target FPS: {target_fps}")
     return target_fps
 
-def capture_and_stream(app_name):
+def capture_and_stream(app_name, FPS=0):
     """Captures frames from the target app and streams/saves using FFmpeg."""
     actual_target_fps = measure_app_fps(app_name)
-    #capture_interval = int(1000 / actual_target_fps)  # Convert FPS to milliseconds
     wincap = WindowCapture(app_name)
 
     # Launch FFmpeg as a subprocess with optimized settings
@@ -57,7 +49,7 @@ def capture_and_stream(app_name):
         "-f", "rawvideo",
         "-pix_fmt", "bgr24",
         "-s", f"{wincap.w}x{wincap.h}",
-        "-r", str(actual_target_fps), 
+        "-r", str(FPS) if FPS > 0 else str(actual_target_fps), 
         "-i", "-",
         "-c:v", "libx264",
         "-preset", "ultrafast",
@@ -72,11 +64,17 @@ def capture_and_stream(app_name):
 
     ffmpeg_process = Popen(ffmpeg_cmd, stdin=PIPE)
 
-    print(f"Starting capture and stream... (Capture target: {actual_target_fps} FPS)")
+    print(f"Starting capture and stream...")
 
     try:
+        loop_time = time()
+        fps_list = []
+        start_time = time()
+
         while True:
-            #start_time = time()
+            if FPS == 0 and time() - start_time >= 5:
+                break
+
             frame = wincap.get_screenshot()
             if frame is not None:
                 # Write the raw frame data to FFmpeg's stdin
@@ -84,18 +82,34 @@ def capture_and_stream(app_name):
             else:
                 print("Failed to capture frame.")
                 continue
-            # Enforce consistent frame capture interval
-            # elapsed = time() - start_time
-            # remaining_time = capture_interval - (elapsed * 1000)
-            # if remaining_time > 0:
-            #     cv2.waitKey(int(remaining_time))  # Wait for the remaining time in milliseconds
+
+            # Append Recording FPS to list
+            current_time = time()
+            fps = 1 / (current_time - loop_time)
+            fps_list.append(fps)
+            loop_time = current_time
+            print(f'FPS: {fps:.2f}', end='\r')
 
     except KeyboardInterrupt:
-        print("\nCapture interrupted by user.")
+        if FPS > 0:
+            print("\nCapture interrupted by user.")
     finally:
         ffmpeg_process.stdin.close()
         ffmpeg_process.wait()
         print("Capture and stream ended.")
+
+    # Calc recording FPS
+    #avgRecordFPS = sum(fps_list) / loop_count if loop_count > 0 else 0 <= Outlier effected
+    fps_list.sort()
+    middle_index = len(fps_list) // 2
+    if len(fps_list) % 2 == 0:
+        # If even number of elements, take the average of the two middle values
+        medianRecordFPS = (fps_list[middle_index - 1] + fps_list[middle_index]) / 2
+    else:
+        # If odd number of elements, take the middle value
+        medianRecordFPS = fps_list[middle_index]
+
+    return math.floor(medianRecordFPS)
 
 if __name__ == "__main__":
     window_list = list_window_names()
@@ -106,4 +120,8 @@ if __name__ == "__main__":
     target_window_index = int(input("Select the window index: ")) - 1
     app_name = window_list[target_window_index]
 
-    capture_and_stream(app_name)
+    # dummy loop to calc Recording FPS
+    FPS = capture_and_stream(app_name, 0)
+    print('\nRecording FPS = ' + str(FPS) + '\n')
+    # real loop
+    capture_and_stream(app_name, FPS)
